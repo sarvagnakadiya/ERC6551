@@ -19,6 +19,9 @@ contract ERC6551Test is Test {
     IERC6551Registry public registryInstance;
 
     address public user = vm.envAddress("USER");
+    address public newOwner = vm.envAddress("USER2");
+
+    IERC6551Account public newAccountInstance;
 
     function setUp() public {
         testNFTDeployment();
@@ -105,6 +108,8 @@ contract ERC6551Test is Test {
         assertNotEq(createdAccount, address(0), "Account creation failed");
         console.log("New account created at: ", createdAccount);
 
+        newAccountInstance = IERC6551Account(payable(createdAccount));
+
         vm.stopPrank();
     }
 
@@ -112,10 +117,6 @@ contract ERC6551Test is Test {
         testCreateAccount();
 
         vm.startPrank(user);
-
-        IERC6551Account newAccountInstance = IERC6551Account(
-            payable(createdAccount)
-        );
 
         // Test token function
         (
@@ -134,8 +135,40 @@ contract ERC6551Test is Test {
         vm.stopPrank();
     }
 
+    function testNFTTransferAndOwnershipChange() public {
+        testCreateAccount();
+
+        vm.startPrank(user);
+
+        address initialOwner = newAccountInstance.owner();
+        assertEq(initialOwner, user, "Initial owner should be the user");
+
+        myToken_.transferFrom(user, newOwner, TOKEN_ID);
+
+        // Check if the NFT owner has changed
+        assertEq(myToken_.ownerOf(TOKEN_ID), newOwner, "NFT transfer failed");
+
+        // Check if the tokenbound account owner has changed
+        address newTokenboundOwner = newAccountInstance.owner();
+        assertEq(
+            newTokenboundOwner,
+            newOwner,
+            "Tokenbound account owner should be the new owner"
+        );
+
+        console.log("NFT transferred to:", newOwner);
+        console.log("New tokenbound account owner:", newTokenboundOwner);
+
+        vm.stopPrank();
+    }
+
     function testAccountCreationAndFunctions() public {
         testCreateAccount();
         testAccountFunctions();
+    }
+
+    function testFullFlow() public {
+        testAccountCreationAndFunctions();
+        testNFTTransferAndOwnershipChange();
     }
 }
